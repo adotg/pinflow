@@ -1,44 +1,92 @@
-import { Node, run, Action } from '../src';
+import { Node, run, Action, KILL } from '../src';
 import { mockLLM } from './mock-llm';
 
 /**
- * Multi-Agent Pattern: Coordinated Collaboration
+ * # Tutorial: Building a Word-Guessing Game with Coordinating Agents
  *
- * Multiple agents work together by handling subtasks and communicating progress.
- * Agents coordinate through shared state (message queues, context) to solve
- * complex problems requiring different specializations or perspectives.
+ * > **[View example code](../../tests/multi-agent.test.ts)**
  *
- * **How it works:**
- * 1. **Message Queue Communication**: Agents pass messages through arrays in the
- *    shared store. Each agent reads recent messages, processes them, and appends
- *    its output back to the queue.
+ * ## What Will Be Built
  *
- * 2. **Shared State**: All agents access common data through the store, containing
- *    message history, current state, and coordination metadata (e.g., round counter).
+ * A collaborative word-guessing game where two agents work together through iterative
+ * communication. A Hinter agent provides clues about a target word, and a Guesser agent
+ * attempts to identify it. The agents exchange messages through a shared queue until
+ * the word is guessed or a maximum number of rounds is reached.
  *
- * 3. **Turn-Based or Concurrent**: Agents can take turns (action transitions between
- *    agents) or run concurrently (multiple run() calls in parallel). This example
- *    shows turn-based coordination.
+ * Input:  { targetWord: 'computer', messages: [], rounds: 0 }
+ * Output: { guessed: true, messages: [hinter clues & guesses], rounds: 3 }
  *
- * 4. **Loop Control**: One agent's post() returns an action pointing to another agent,
- *    creating a collaboration loop. The loop continues until a terminal condition
- *    (success, max rounds, etc.) is reached.
+ * ## Workflow Diagram
  *
- * **When to use:**
- * - Tasks requiring multiple specialized agents (e.g., researcher + writer)
- * - Adversarial or debate scenarios (e.g., proposer + critic)
- * - Cooperative problem-solving (e.g., game-playing agents)
- * - Complex workflows where different LLMs or prompts handle different aspects
+ * ```mermaid
+ * graph LR
+ *     Store["Shared Store
+ *     ―――――――――――――
+ *     messages: []
+ *     targetWord: 'computer'
+ *     rounds: 0"]
  *
- * **Important caveat:**
- * Most of the time, you don't need multi-agents. Start with a simple solution first.
- * Multi-agent systems add complexity and are only justified when the problem truly
- * requires multiple independent decision-makers.
+ *     Hinter["HinterNode
+ *     ―――――――――――――
+ *     Read target & history
+ *     Generate clue
+ *     Append to messages"]
  *
- * **Implementation:**
- * Each agent is a node. They connect to each other forming a loop. Messages array
- * in store acts as communication channel. Round counter or success flag controls
- * when to exit the loop by returning null instead of the next agent's action.
+ *     Guesser["GuesserNode
+ *     ―――――――――――――
+ *     Read message history
+ *     Make guess
+ *     Check if correct"]
+ *
+ *     Result["Result
+ *     ―――――――――――――
+ *     guessed: true
+ *     rounds: 3"]
+ *
+ *     Store --> Hinter
+ *     Hinter --> Guesser
+ *     Guesser -->|"incorrect guess"| Hinter
+ *     Guesser -->|"correct or max rounds"| Result
+ * ```
+ *
+ * ## Implementation
+ *
+ * The workflow consists of two nodes that alternate execution:
+ *
+ * **HinterNode**: The target word and recent message history will be read from the
+ * store. A clue will be generated and appended to the shared message queue. The
+ * default edge will transition control to the GuesserNode.
+ *
+ * **GuesserNode**: The complete message history will be read from the store. A guess
+ * will be made and added to the message queue. If the guess matches the target word
+ * or the maximum rounds are reached, the workflow will terminate by returning KILL.
+ * Otherwise, the default edge will return control to the HinterNode.
+ *
+ * **Communication**: Both agents communicate through a message array in the shared
+ * store. Each message contains the sender's name and content, allowing agents to
+ * understand the conversation context.
+ *
+ * @example
+ * const store: MultiAgentStore = {
+ *   messages: [],
+ *   targetWord: 'computer',
+ *   guessed: false,
+ *   rounds: 0
+ * };
+ *
+ * const hinterNode = new HinterNode();
+ * const guesserNode = new GuesserNode();
+ *
+ * // Nodes are connected to form a coordination loop
+ * hinterNode.connect(guesserNode);
+ * guesserNode.connect(hinterNode);
+ *
+ * // The workflow will alternate between agents until completion
+ * await run(hinterNode, store);
+ *
+ * // Final state after coordination
+ * console.log(store.guessed); // true
+ * console.log(store.rounds);  // 3
  */
 
 interface MultiAgentStore {
@@ -57,7 +105,7 @@ Give a one-word clue (don't say the target word).`;
   }
 
   async exec(store: MultiAgentStore, prompt: string): Promise<string> {
-    await mockLLM.call(prompt);
+    await mockLLM.call(prompt, 100);
     return 'related-clue';
   }
 
@@ -65,10 +113,9 @@ Give a one-word clue (don't say the target word).`;
     store: MultiAgentStore,
     prepItems: string[],
     execResults: string[]
-  ): Promise<Action> {
+  ) {
     const clue = execResults[0];
     store.messages.push({ from: 'Hinter', content: clue });
-    return 'guesser';
   }
 }
 
@@ -79,7 +126,7 @@ class GuesserNode extends Node<MultiAgentStore, string, string> {
   }
 
   async exec(store: MultiAgentStore, prompt: string): Promise<string> {
-    await mockLLM.call(prompt);
+    await mockLLM.call(prompt, 100);
 
     if (store.rounds >= 2) {
       return store.targetWord!;
@@ -91,21 +138,19 @@ class GuesserNode extends Node<MultiAgentStore, string, string> {
     store: MultiAgentStore,
     prepItems: string[],
     execResults: string[]
-  ): Promise<Action> {
+  ) {
     const guess = execResults[0];
     store.messages.push({ from: 'Guesser', content: guess });
     store.rounds++;
 
     if (guess === store.targetWord) {
       store.guessed = true;
-      return null;
+      return KILL;
     }
 
     if (store.rounds >= 3) {
-      return null;
+      return KILL;
     }
-
-    return 'hinter';
   }
 }
 
@@ -121,8 +166,8 @@ describe('Multi-Agent Pattern', () => {
     const hinterNode = new HinterNode();
     const guesserNode = new GuesserNode();
 
-    hinterNode.connect('guesser', guesserNode);
-    guesserNode.connect('hinter', hinterNode);
+    hinterNode.connect(guesserNode);
+    guesserNode.connect(hinterNode);
 
     await run(hinterNode, store);
 

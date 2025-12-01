@@ -1,0 +1,15 @@
+{
+  "name": "example-chat-agent",
+  "version": "0.1.0",
+  "description": "Chat agent example using MicroFlow",
+  "private": true,
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "microflow": "*",
+    "openai": "^4.77.0"
+  }
+}

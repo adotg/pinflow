@@ -2,23 +2,58 @@ import { Node, run, Action } from '../src';
 import { mockLLM } from './mock-llm';
 
 /**
- * Single Node Execution
+ * @fileoverview Run a single turn question-answer task with a LLM
  *
- * The fundamental building block of MicroFlow is the three-phase node:
+ * @description
  *
- * 1. **prep**: Generator function that yields items to be processed. Can yield
- *    synchronous values or Promises. Each yielded item will be passed to exec.
+ * > **[View example code](../../tests/single-node.test.ts)**
  *
- * 2. **exec**: Async function that processes each item from prep. This is where
- *    expensive operations like LLM calls happen. All exec calls run in parallel
- *    automatically for maximum throughput.
+ * ## What Will Be Built
  *
- * 3. **post**: Receives all prep items and exec results after everything completes.
- *    Used for aggregation, storing results, and flow control (returning an action
- *    string to transition to another node, or null to end).
+ * A simple application that asks a question and gets an answer from an LLM will be created. MicroFlow's three-phase execution pattern is used to structure the task.
  *
- * This pattern separates data preparation, parallel execution, and result aggregation
- * into distinct phases, making LLM workflows composable and efficient.
+ * ## Understanding the Three Phases
+ *
+ * Tasks are executed in three phases, similar to a production line:
+ *
+ * 1. **prep** - What needs to be processed is prepared (the prompt is yielded)
+ * 2. **exec** - The actual work is done (the LLM is called)
+ * 3. **post** - The results are handled (the answer is stored)
+ *
+ * ## Execution Flow
+ *
+ * ```mermaid
+ * graph TB
+ *     subgraph SimpleNode["SimpleNode"]
+ *         direction TB
+ *         Prep["prep<br/>---<br/>yield: 'What is the capital of France?'"]
+ *         Exec["exec<br/>---<br/>Call LLM with prompt<br/>Returns: 'Paris is the capital...'"]
+ *         Post["post<br/>---<br/>Store result in store.result"]
+ *
+ *         Prep --> Exec
+ *         Exec --> Post
+ *     end
+ *
+ *     style SimpleNode fill:#f5f5f5,stroke:#333,stroke-width:3px
+ *     style Prep fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
+ *     style Exec fill:#fff3e0,stroke:#f57c00,stroke-width:2px
+ *     style Post fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
+ * ```
+ *
+ * ## Implementation
+ *
+ * @example
+ * const store: BasicStore = {
+ *   prompt: 'What is the capital of France?'
+ * };
+ *
+ * const node = new SimpleNode();
+ * // The `run()` function executes all three phases automatically,
+ * // and the answer is stored in `store.result`.
+ * await run(node, store);
+ * // Contains the LLM response
+ * console.log(store.result);
+ * 
  */
 
 interface BasicStore {

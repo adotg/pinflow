@@ -2,46 +2,92 @@ import { Node, run, Action } from '../src';
 import { mockLLM } from './mock-llm';
 
 /**
- * Parallel Execution: Automatic Concurrency
+ * # Tutorial: Processing Multiple Queries Concurrently
  *
- * MicroFlow automatically executes all prep items in parallel for maximum throughput.
- * This is a core architectural feature that makes LLM workflows efficient without
- * requiring explicit concurrency management.
+ * > **[View example code](../../tests/parallel-execution.test.ts)**
  *
- * **How it works:**
- * 1. **Generator Pattern**: The prep() generator yields multiple items. As soon as
- *    an item is yielded, it's immediately dispatched to exec() without waiting for
- *    previous items to complete.
+ * ## What Will Be Built
  *
- * 2. **Concurrent Execution**: All exec() calls run concurrently via Promise.all().
- *    This is crucial for I/O-bound LLM operations where wall-clock time is dominated
- *    by network latency, not CPU.
+ * A batch processing workflow that takes multiple independent queries and processes
+ * them concurrently to maximize throughput. Five queries will be sent to an LLM
+ * simultaneously, and all responses will be collected while maintaining their original
+ * order.
  *
- * 3. **Order Preservation**: Despite parallel execution, results maintain the same
- *    order as prep items. post() receives prepItems and execResults in corresponding
- *    order, making aggregation predictable.
+ * Input:  ['Query 1', 'Query 2', 'Query 3', 'Query 4', 'Query 5']
+ * Output: ['Response 1', 'Response 2', 'Response 3', 'Response 4', 'Response 5']
  *
- * 4. **Automatic Batching**: If you yield 100 items, all 100 exec() calls run
- *    concurrently (subject to runtime limits). No manual batching or pooling needed.
+ * Processing time: ~500ms (vs 2500ms if processed sequentially)
  *
- * **Performance impact:**
- * For N items with exec time T:
- * - Sequential: N × T total time
- * - Parallel (MicroFlow): ~T total time (assuming sufficient resources)
+ * ## Workflow Diagram
  *
- * Example: 10 LLM calls at 500ms each
- * - Sequential: 5000ms
- * - Parallel: ~500ms
+ * ```mermaid
+ * graph TB
+ *     Store1["Store State (before)
+ *     ―――――――――――――――――
+ *     queries: ['Query 1', ...]"]
  *
- * **When parallel execution shines:**
- * - Map-reduce over large datasets
- * - Batch processing (embeddings, classifications, etc.)
- * - RAG document chunking and embedding
- * - Any scenario with independent, I/O-bound operations
+ *     subgraph ParallelExecution["Parallel Execution (all concurrent)"]
+ *         direction TB
+ *         PE1["prep() yield 'Query 1'
+ *         ↓
+ *         exec('Query 1') → LLM"]
+ *         PE2["prep() yield 'Query 2'
+ *         ↓
+ *         exec('Query 2') → LLM"]
+ *         PE3["prep() yield 'Query 3'
+ *         ↓
+ *         exec('Query 3') → LLM"]
+ *         PE4["prep() yield 'Query 4'
+ *         ↓
+ *         exec('Query 4') → LLM"]
+ *         PE5["prep() yield 'Query 5'
+ *         ↓
+ *         exec('Query 5') → LLM"]
+ *     end
  *
- * **Implementation:**
- * Simply yield multiple items in prep(). The runtime handles the rest. No special
- * syntax or concurrency primitives needed - it's the default behavior.
+ *     Post["post()
+ *     ―――――――――――――――――――――――――
+ *     Collect all results
+ *     Store in store.results"]
+ *
+ *     Store2["Store State (after)
+ *     ―――――――――――――――――
+ *     queries: ['Query 1', ...]
+ *     results: ['Response 1', ...]"]
+ *
+ *     Store1 --> ParallelExecution
+ *     ParallelExecution -->|"All responses
+ *     (order preserved)"| Post
+ *     Post --> Store2
+ * ```
+ *
+ * ## Implementation
+ *
+ * The workflow is divided into three phases:
+ *
+ * **prep**: Each query from the store will be yielded individually. As soon as a query
+ * is yielded, it will be dispatched to `exec()` without waiting for other queries.
+ *
+ * **exec**: All five exec calls will run concurrently. Each query will be sent to the
+ * LLM independently, with responses collected as they complete. The order of results
+ * will match the order of queries regardless of completion time.
+ *
+ * **post**: All responses will be received as an array and stored in the store. The
+ * `execResults` array will maintain the same ordering as the original queries array.
+ *
+ * @example
+ * const store: ParallelStore = {
+ *   queries: ['Query 1', 'Query 2', 'Query 3', 'Query 4', 'Query 5']
+ * };
+ *
+ * const node = new ParallelNode();
+ * // The `run()` function will execute all queries concurrently,
+ * // wait for all responses, and store them in `store.results`.
+ * await run(node, store);
+ *
+ * // Access the collected results (order preserved)
+ * console.log(store.results);
+ * // ['Response 1', 'Response 2', 'Response 3', 'Response 4', 'Response 5']
  */
 
 interface ParallelStore {
@@ -57,7 +103,7 @@ class ParallelNode extends Node<ParallelStore, string, string> {
   }
 
   async exec(store: ParallelStore, query: string): Promise<string> {
-    return mockLLM.call(query, 10);
+    return mockLLM.call(query, 5);
   }
 
   async post(

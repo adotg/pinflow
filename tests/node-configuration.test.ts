@@ -2,45 +2,38 @@ import { Node, run, Action } from '../src';
 import { mockLLM } from './mock-llm';
 
 /**
- * Node Configuration: Parameters & Settings
+ * # Configuring Nodes with Custom Parameters and Retry Behavior
  *
- * MicroFlow nodes support two types of configuration:
+ * > **[View example code](../../tests/node-configuration.test.ts)**
  *
- * **1. NodeConfig (Constructor):**
- * Reliability and execution settings passed to the constructor:
- * - `maxRetries`: Number of retry attempts on failure (default: 3)
- * - `retryDelay`: Milliseconds between retries (default: 2000)
- * - `timeout`: Maximum execution time in milliseconds (default: 60000)
+ * ## What Will Be Built
  *
- * These settings control the runtime behavior and error handling for the node.
+ * A reusable prompt formatter node that can be configured with different prefixes
+ * and retry behaviors. The same node class will be instantiated multiple times with
+ * different configurations, demonstrating how nodes can be customized without
+ * creating new classes.
  *
- * **2. Custom Parameters (setParams):**
- * Application-specific configuration set via setParams() and accessed through
- * this.params in node methods. Useful for:
- * - Prompt templates or prefixes
- * - Model selection (e.g., gpt-4 vs gpt-3.5)
- * - Temperature, max tokens, or other LLM parameters
- * - Feature flags or conditional behavior
+ * Example configurations:
+ * - Node with "Say: " prefix and 5 retries for critical operations
+ * - Node with "Prompt: " prefix and 2 retries for less critical operations
+ * - Node with default settings and custom timeout
  *
- * **How it works:**
- * - Pass NodeConfig object to super() in constructor for runtime settings
- * - Chain setParams() call when instantiating node for custom configuration
- * - Access this.params in prep/exec/post methods
- * - Params are strongly typed via the Params type (Record<string, any>)
+ * ## Implementation
  *
- * **Method chaining:**
- * Both connect() and setParams() return `this`, enabling fluent API:
- * ```typescript
- * const node = new MyNode({ maxRetries: 5 })
- *   .setParams({ temperature: 0.7 })
- *   .connect('next', nextNode);
- * ```
+ * **Custom Parameters**: A prefix parameter will be set using `setParams()` and
+ * accessed via `this.params` in the prep method. This allows the same node class
+ * to format prompts differently based on configuration.
  *
- * **When to use:**
- * - NodeConfig: When you need different reliability guarantees per node
- * - setParams: When nodes need different behavior but share the same class
+ * **Retry Configuration**: Retry settings will be passed to the constructor to
+ * control how the node handles failures. Different node instances can have
+ * different reliability guarantees:
+ * - `maxRetries`: Number of retry attempts on failure
+ * - `retryDelay`: Milliseconds between retries
+ * - `timeout`: Maximum execution time
  *
- * This pattern enables node reusability while maintaining flexibility.
+ * **Method Chaining**: Configuration methods will be chained together for fluent
+ * setup. Both `setParams()` and `connect()` return the node instance, allowing
+ * multiple configurations in a single expression.
  */
 
 interface ConfigStore {
@@ -107,9 +100,9 @@ describe('Node Configuration', () => {
 
     const node = new ConfigurableNode({ maxRetries: 2 })
       .setParams({ prefix: 'Prompt: ' })
-      .connect('next', nextNode);
+      .connect(nextNode);
 
     expect(node.config.maxRetries).toBe(2);
-    expect(node.getEdge('next')).toBe(nextNode);
+    expect(node.getEdge('default')).toBe(nextNode);
   });
 });

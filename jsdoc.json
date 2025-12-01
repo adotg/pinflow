@@ -1,0 +1,14 @@
+{
+  "source": {
+    "includePattern": ".+\\.ts(doc|x)?$"
+  },
+  "plugins": [
+    "plugins/markdown"
+  ],
+  "markdown": {
+    "idInHeadings": true
+  },
+  "opts": {
+    "encoding": "utf8"
+  }
+}

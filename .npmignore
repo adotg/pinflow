@@ -1,0 +1,12 @@
+examples/
+tests/
+*.test.ts
+*.test.js
+tsconfig.json
+jest.config.js
+coverage/
+.github/
+docs/examples/
+scripts/
+CLAUDE.md
+prd0.md

@@ -2,40 +2,92 @@ import { Node, run, Action } from '../src';
 import { mockLLM } from './mock-llm';
 
 /**
- * Structured Output Pattern: Reliable Formatting & Validation
+ * # Tutorial: Extracting Structured Person Information from Text
  *
- * Ensures LLM responses follow consistent formats through three strategies:
- * prompting, schema enforcement, and post-processing. For modern LLMs, prompting
- * is simple and reliable.
+ * > **[View example code](../../tests/structured-output.test.ts)**
  *
- * **How it works:**
- * 1. **Prompt Engineering**: Guide the LLM by wrapping desired structures in code
- *    fences (```yaml or ```json) and providing explicit formatting examples.
+ * ## What Will Be Built
  *
- * 2. **Structured Parsing in exec**: Parse the LLM's response to extract structured
- *    data (e.g., YAML/JSON parsing). Return strongly-typed objects rather than strings.
+ * A data extraction workflow that takes unstructured text about a person and
+ * produces a validated, typed object containing their name, age, and occupation.
+ * The LLM will be prompted to output YAML format, and the response will be validated
+ * to ensure all required fields are present.
  *
- * 3. **Validation in post**: Verify the response contains all required fields.
- *    MicroFlow's retry mechanism allows automatic retries if validation fails
- *    (throw an error, and the node will retry up to maxRetries times).
+ * Input:  "John Doe is a 30 year old engineer working at a tech company."
+ * Output: { name: "John Doe", age: 30, occupation: "Engineer" }
  *
- * **Why YAML over JSON:**
- * Current LLMs struggle with escaping characters in JSON strings. YAML avoids this
- * problem because:
- * - No need to escape interior quotes
- * - Block literals (|) naturally preserve newlines
- * - More forgiving syntax reduces parsing errors
+ * ## Workflow Diagram
  *
- * **Use cases:**
- * - Information extraction with defined schemas
- * - Document summarization with consistent structure
- * - Configuration file generation
- * - Any scenario requiring reliable, parseable LLM output
+ * ```mermaid
+ * graph TB
+ *     subgraph ExtractNode["ExtractNode"]
+ *         direction TB
+ *         prep["prep()
+ *         ―――――――――――――――――――――――――
+ *         Input: store.text
+ *         Output: YAML-formatted prompt"]
  *
- * **Implementation:**
- * Combine clear prompts with validation in post(). If validation fails, throw an
- * error to trigger automatic retry. This pattern leverages MicroFlow's built-in
- * retry mechanism for robust structured output.
+ *         exec["exec()
+ *         ―――――――――――――――――――――――――
+ *         Input: prompt
+ *         LLM Call → Parse YAML
+ *         Output: PersonInfo object"]
+ *
+ *         post["post()
+ *         ―――――――――――――――――――――――――
+ *         Validate fields exist
+ *         Store result in store.extractedData"]
+ *
+ *         prep -->|"Extract person info...
+ *         ```yaml
+ *         name: <name>
+ *         age: <age>
+ *         ..."| exec
+ *         exec -->|"{name: 'John Doe',
+ *         age: 30,
+ *         occupation: 'Engineer'}"| post
+ *     end
+ *
+ *     store1["Store State (before)
+ *     ―――――――――――――――――
+ *     text: 'John Doe is...'"] -->|input| prep
+ *     post -->|"updates"| store2["Store State (after)
+ *     ―――――――――――――――――
+ *     text: 'John Doe is...'
+ *     extractedData: {...}"]
+ * ```
+ *
+ * ## Implementation
+ *
+ * The workflow is divided into three phases:
+ *
+ * **prep**: A prompt will be generated that instructs the LLM to extract person
+ * information and format it as YAML. The prompt includes the input text and an
+ * example of the expected output structure.
+ *
+ * **exec**: The LLM will be called with the prompt. The response will be parsed
+ * from YAML format into a strongly-typed PersonInfo object with name, age, and
+ * occupation fields.
+ *
+ * **post**: The extracted data will be validated to ensure all required fields
+ * (name, age, occupation) are present. If any field is missing, an error will be
+ * thrown. Otherwise, the data will be saved to the store.
+ *
+ * @example
+ * const store: StructuredStore = {
+ *   text: 'John Doe is a 30 year old engineer working at a tech company.'
+ * };
+ *
+ * // Prompt is defined inside the ExtractNode class, check the implementation at tests/structured-output.test.ts
+ * const node = new ExtractNode();
+ * // The `run()` function executes all three phases automatically,
+ * // validates the data, and stores it in `store.extractedData`.
+ * await run(node, store);
+ *
+ * // Access the extracted, validated data
+ * console.log(store.extractedData);
+ * // { name: 'John Doe', age: 30, occupation: 'Engineer' }
+ *
  */
 
 interface StructuredStore {

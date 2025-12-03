@@ -1,5 +1,5 @@
 {
-  "name": "microflow",
+  "name": "pinflow",
   "version": "0.1.0",
   "description": "A minimalist LLM orchestration library for TypeScript inspired by PocketFlow",
   "type": "module",

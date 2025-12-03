@@ -1,15 +1,15 @@
 {
   "name": "example-chat-agent",
   "version": "0.1.0",
-  "description": "Chat agent example using MicroFlow",
+  "description": "Chat agent example using PinFlow",
   "private": true,
   "type": "module",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js"
+    "start": "node --no-deprecation index.js"
   },
   "dependencies": {
-    "microflow": "*",
+    "pinflow": "file:../..",
     "openai": "^4.77.0"
   }
 }

@@ -1,6 +1,6 @@
 # Terminal Chat Agent Example
 
-This example demonstrates how to build an interactive terminal-based chat agent using MicroFlow and OpenAI-compatible APIs.
+This example demonstrates how to build an interactive terminal-based chat agent using PinFlow and OpenAI-compatible APIs.
 
 ## Features
 
@@ -14,7 +14,7 @@ This example demonstrates how to build an interactive terminal-based chat agent 
 
 The agent uses a simple single-node workflow:
 
-- **ChatNode**: Handles the entire conversation flow using MicroFlow's prep-exec-post pattern
+- **ChatNode**: Handles the entire conversation flow using PinFlow's prep-exec-post pattern
   - `prep()`: Yields the full conversation history
   - `exec()`: Calls the OpenAI-compatible API with the messages
   - `post()`: Updates the conversation history with the response
@@ -73,7 +73,7 @@ OPENAI_API_BASE=https://api.openai.com/v1 OPENAI_API_KEY=sk-... MODEL=gpt-4 npm 
 
 ```
 ================================================================================
-Terminal Chat Agent - Powered by MicroFlow
+Terminal Chat Agent - Powered by PinFlow
 ================================================================================
 
 API Endpoint: http://localhost:1234/v1

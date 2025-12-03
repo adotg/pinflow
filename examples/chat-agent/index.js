@@ -1,4 +1,4 @@
-import { Node, run } from 'microflow';
+import { Node, run } from 'pinflow';
 import OpenAI from 'openai';
 import * as readline from 'readline';
 
@@ -32,16 +32,29 @@ class ChatNode extends Node {
   }
 
   async exec(store, messages) {
-    const response = await client.chat.completions.create({
-      model: MODEL,
-      messages: messages,
-      temperature: 0.7,
-    });
-    return response.choices[0].message.content;
+    let dots = 0;
+    const thinkingInterval = setInterval(() => {
+      dots = (dots + 1) % 4;
+      process.stdout.write(`\rThinking${'.'.repeat(dots)}${' '.repeat(3 - dots)}`);
+    }, 500);
+
+    try {
+      const response = await client.chat.completions.create({
+        model: MODEL,
+        messages: messages,
+        temperature: 0.7,
+      });
+      return response.choices[0].message.content;
+    } finally {
+      clearInterval(thinkingInterval);
+      process.stdout.write('\r' + ' '.repeat(12) + '\r'); // Clear the thinking line
+    }
   }
 
   async post(store, prepItems, execResults) {
-    const response = execResults[0];
+    let response = execResults[0];
+    // Remove <think>...</think> tags and their content
+    response = response.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
 
     store.messages.push({
       role: 'assistant',
@@ -71,12 +84,12 @@ async function getUserInput(rl) {
 
 async function main() {
   console.log('='.repeat(80));
-  console.log('Terminal Chat Agent - Powered by MicroFlow');
+  console.log('Terminal Chat Agent - Powered by PinFlow');
   console.log('='.repeat(80));
-  console.log(`\nAPI Endpoint: ${API_BASE_URL}`);
+  console.log(`API Endpoint: ${API_BASE_URL}`);
   console.log(`Model: ${MODEL}`);
-  console.log('\nPress ctrl+c to exit\n');
-  console.log('='.repeat(80) + '\n');
+  console.log('Press ctrl+c to exit');
+  console.log('='.repeat(80));
 
   const rl = createInterface();
 

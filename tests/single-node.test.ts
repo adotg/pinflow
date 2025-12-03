@@ -10,7 +10,7 @@ import { mockLLM } from './mock-llm';
  *
  * ## What Will Be Built
  *
- * A simple application that asks a question and gets an answer from an LLM will be created. MicroFlow's three-phase execution pattern is used to structure the task.
+ * A simple application that asks a question and gets an answer from an LLM will be created. PinFlow's three-phase execution pattern is used to structure the task.
  *
  * ## Understanding the Three Phases
  *
